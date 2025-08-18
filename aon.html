@@ -449,6 +449,13 @@ function removeEdge(id){ edges = edges.filter(e=> e.id!==id); render(); }
 function getNode(id){ return nodes.find(n=> n.id===id); }
 function getLabelByNode(id){ const n=getNode(id); return n?n.label:null; }
 
+function attachPoint(node, other){
+  const isMS = (node.label==='PS' || node.label==='PF');
+  const halfW = isMS ? 110/2 : 160/2;
+  const x = node.x + (other.x >= node.x ? halfW : -halfW);
+  return [x, node.y];
+}
+
 /* ---- render SVG ---- */
 function render(){
   canvas.innerHTML = '';
@@ -473,7 +480,8 @@ function render(){
     const from = getNode(e.from), to = getNode(e.to);
     if(!from || !to) return;
 
-    const [x1,y1,x2,y2] = [from.x,from.y,to.x,to.y];
+    const [x1,y1] = attachPoint(from, to);
+    const [x2,y2] = attachPoint(to, from);
     const siblings = pairGroups[e.from+'->'+e.to];
     const idx = siblings.indexOf(e);
     const count = siblings.length;
