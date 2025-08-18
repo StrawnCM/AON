@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AON (PDM) Network Practice — CPM w/ FS/SS/FF/SF + PS/PF</title>
+<style>
+  :root{
+    --bg:#0f172a;          /* slate-900 */
+    --panel:#111827;       /* gray-900 */
+    --ink:#e5e7eb;         /* gray-200 */
+    --muted:#9ca3af;       /* gray-400 */
+    --accent:#22c55e;      /* green-500 */
+    --accent-2:#60a5fa;    /* blue-400 */
+    --warn:#f59e0b;        /* amber-500 */
+    --error:#ef4444;       /* red-500 */
+    --ok:#10b981;          /* emerald-500 */
+    --chip:#1f2937;        /* gray-800 */
+    --btn:#1f2937;
+    --btn-hover:#374151;
+    --border:#374151;
+    --crit:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  }
+  header{
+    padding:14px 18px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:14px
+  }
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header .stepper{display:flex;gap:10px;align-items:center;color:var(--muted)}
+  .step{padding:4px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--border)}
+  .step.active{color:var(--ink);border-color:var(--accent-2)}
+  .wrap{display:grid;grid-template-columns:380px 1fr;min-height:calc(100% - 56px)}
+  aside{border-right:1px solid var(--border);padding:14px;overflow:auto}
+  main{display:flex;flex-direction:column}
+  .section{margin-bottom:16px}
+  h2{font-size:14px;margin:6px 0 8px 0;font-weight:700}
+  table{width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  thead th{background:#0b1220;color:var(--muted);font-weight:600;padding:6px;border-bottom:1px solid var(--border)}
+  td{padding:6px;border-bottom:1px solid var(--border);vertical-align:top}
+  td input, td textarea, select{
+    width:100%;padding:6px;border-radius:6px;border:1px solid var(--border);
+    background:#0b1220;color:var(--ink);outline:none
+  }
+  .row-actions{display:flex;gap:6px}
+  button{
+    background:var(--btn);color:var(--ink);border:1px solid var(--border);
+    padding:6px 10px;border-radius:8px;cursor:pointer
+  }
+  button:hover{background:var(--btn-hover)}
+  button.primary{background:linear-gradient(180deg,#1e293b,#0f172a);border-color:#2c3b52}
+  .kudos{color:var(--muted);font-size:12px}
+  .toolbar{
+    display:flex;gap:8px;align-items:center;padding:10px;border-bottom:1px solid var(--border);
+    background:#0b1220
+  }
+  .toolbar .mode{padding:6px 10px;border-radius:8px;border:1px solid var(--border);cursor:pointer}
+  .toolbar .mode.active{outline:2px solid var(--accent-2)}
+  .toolbar .sep{width:1px;height:24px;background:var(--border)}
+  .toolbar .pill{background:var(--chip);padding:4px 8px;border-radius:999px}
+  #canvasWrap{position:relative;flex:1}
+  #canvas{
+    width:100%;height:100%;background:radial-gradient(circle at 40px 40px, rgba(255,255,255,.03) 2px, transparent 2px) 0 0/40px 40px,
+      linear-gradient(#0b1220,#0b1220);
+    cursor:default
+  }
+  .legend{padding:8px 10px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+  .status{padding:10px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .status .badge{padding:2px 8px;border-radius:999px;background:var(--chip);border:1px solid var(--border)}
+  .status .badge.ok{color:var(--ok);border-color:var(--ok)}
+  .status .badge.err{color:var(--error);border-color:var(--error)}
+  .status .badge.warn{color:var(--warn);border-color:var(--warn)}
+  .results{padding:8px 10px;border-top:1px solid var(--border);max-height:220px;overflow:auto}
+  .results .item{padding:6px 8px;margin:6px 0;border:1px dashed var(--border);border-radius:8px}
+  .results .item.err{border-color:var(--error)}
+  .results .item.ok{border-color:var(--ok)}
+  .results .item.warn{border-color:var(--warn)}
+  .hint{color:var(--muted);font-size:12px}
+  .badge-list{display:flex;flex-wrap:wrap;gap:6px}
+  .badge-list .chip{background:var(--chip);border:1px solid var(--border);padding:2px 8px;border-radius:999px}
+  .ghost-tip{position:absolute;left:12px;top:12px;background:rgba(15,23,42,.8);padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;pointer-events:none}
+
+  /* SVG styles */
+  svg .aon-node rect{fill:#0f172a;stroke:#475569;stroke-width:2;rx:10;ry:10}
+  svg .aon-node polygon{fill:#0f172a;stroke:#475569;stroke-width:2}
+  svg .aon-node.selected rect, svg .aon-node.selected polygon{stroke:#60a5fa}
+  svg .aon-node text{fill:#e5e7eb;font-weight:600;font-size:12px;user-select:none}
+  svg .aon-node .muted{fill:#9ca3af;font-weight:500}
+  svg .aon-node.critical rect, svg .aon-node.critical polygon{stroke:var(--crit);stroke-width:3}
+  svg .edge path{stroke:#cbd5e1;stroke-width:2;fill:none}
+  svg .edge text{fill:#cbd5e1;font-weight:600;font-size:12px;user-select:none}
+  svg .edge.selected path{stroke:#60a5fa}
+  svg .edge.critical path{stroke:var(--crit);stroke-width:3}
+  .floating{position:absolute;right:12px;bottom:12px;display:flex;gap:8px;align-items:center}
+  .floating button{opacity:.85}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:20px}
+  .modal .card{width:min(520px,96vw);background:#0b1220;border:1px solid #263246;border-radius:12px;box-shadow:0 30px 100px rgba(0,0,0,.4)}
+  .modal header{border:0}
+  .modal .body{padding:12px 16px}
+  .choices{display:flex;flex-wrap:wrap;gap:8px}
+  .choices button{border-radius:999px}
+  .choices input{
+    width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1px solid var(--border);
+    background:#0b1220;color:var(--ink)
+  }
+  .small{font-size:12px;color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .row label{width:110px;color:var(--muted);font-size:12px}
+  .markers svg{position:absolute;left:-9999px;top:-9999px}
+  a.link{color:#93c5fd;text-decoration:none;border-bottom:1px dashed #93c5fd}
+  .nowrap{white-space:nowrap}
+</style>
+</head>
+<body>
+  <header>
+    <h1>AON / Precedence Diagram Practice</h1>
+    <div class="stepper">
+      <div class="step" id="stepChip1">1. Activities</div>
+      <div class="step" id="stepChip2">2. Diagram</div>
+      <div class="step" id="stepChip3">3. Validate & CPM</div>
+    </div>
+    <div style="margin-left:auto" class="kudos">Tip: Use <span class="nowrap">FS/SS/FF/SF</span> with lags (e.g., <span class="nowrap">FS+2</span>). PS/PF are 0‑duration milestones.</div>
+  </header>
+
+  <div class="wrap">
+    <aside id="left">
+      <!-- Step 1: Activities -->
+      <div class="section" id="activitiesSection">
+        <h2>1) Define activities, durations & predecessors (FS/SS/FF/SF + lag)</h2>
+        <div class="hint">Predecessors: comma‑separated. If type omitted, FS0 is assumed. Examples: <span class="nowrap">A</span>, <span class="nowrap">A FS2</span>, <span class="nowrap">B SS-1</span>, <span class="nowrap">C FF0</span>, <span class="nowrap">D SF3</span>.</div>
+        <table>
+          <thead>
+            <tr><th style="width:26%">Activity</th><th style="width:24%">Duration</th><th>Predecessors</th><th style="width:60px">Del</th></tr>
+          </thead>
+          <tbody id="actBody"></tbody>
+        </table>
+        <div class="section" style="display:flex;gap:8px;margin-top:10px">
+          <button id="addRowBtn">+ Add row</button>
+          <button id="sampleBtn">Load sample</button>
+          <button id="clearBtn">Clear</button>
+        </div>
+        <div class="section">
+          <button class="primary" id="toDiagramBtn">Next → Diagram</button>
+        </div>
+        <div class="hint">Activities must be unique. Predecessors must reference defined activities.</div>
+      </div>
+
+      <!-- Step 3 / Validation Panel -->
+      <div class="section" id="validationPanel" style="display:none">
+        <h2>3) Validate network & compute CPM</h2>
+        <div class="badge-list" id="quickBadges"></div>
+        <div class="section" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button id="validateBtn">Run validation checks</button>
+          <button id="computeBtn">Compute CPM</button>
+          <button id="analyzeBtn">Analyze graph</button>
+        </div>
+        <div class="results" id="results"></div>
+      </div>
+    </aside>
+
+    <main>
+      <!-- Step 2: Diagram -->
+      <div class="toolbar" id="diagramToolbar" style="display:none">
+        <div class="mode" id="modeSelect" title="Drag nodes, select edges">Select / Move</div>
+        <div class="mode" id="modeAddNode" title="Add an activity box">Add Activity</div>
+        <div class="mode" id="modeDrawLink" title="Draw a relationship (FS/SS/FF/SF + lag)">Draw Link</div>
+        <div class="mode" id="modeDelete" title="Delete nodes or links">Delete</div>
+        <div class="sep"></div>
+        <button id="addPSBtn" title="Add Project Start milestone (diamond)">Add PS ◇</button>
+        <button id="addPFBtn" title="Add Project Finish milestone (diamond)">Add PF ◇</button>
+        <div class="sep"></div>
+        <div class="pill">Unplaced activities: <span id="unplacedCount">0</span></div>
+        <div class="pill">Nodes: <span id="nodeCount">0</span></div>
+        <div class="pill">Links: <span id="edgeCount">0</span></div>
+        <div class="sep"></div>
+        <button id="backToActivitiesBtn">← Back</button>
+        <button class="primary" id="openValidationBtn">Validate/CPM →</button>
+      </div>
+
+      <div id="canvasWrap" style="display:none">
+        <div class="ghost-tip" id="ghostTip">Mode: <b>Select / Move</b></div>
+        <svg id="canvas"></svg>
+        <div class="floating">
+          <button id="exportBtn">Export JSON</button>
+          <label>
+            <input type="file" id="importInput" style="display:none" />
+            <button id="importBtn">Import JSON</button>
+          </label>
+          <button id="resetBtn">Reset diagram</button>
+        </div>
+        <div class="legend">
+          <div>• Add rectangular <b>activity boxes</b> and diamond <b>milestones</b> (PS/PF, 0‑duration). • Draw <b>links</b> and choose FS/SS/FF/SF with lag. • Compute CPM to populate ES/EF/LS/LF/TF; critical path highlights.</div>
+        </div>
+        <div class="status">
+          <div class="badge" id="statusCycles">Cycles: 0</div>
+          <div class="badge" id="statusStarts">Start activities: 0</div>
+          <div class="badge" id="statusFinishes">Finish activities: 0</div>
+          <div class="badge" id="statusDuration">Project duration: —</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: pick activity label for new node -->
+  <div class="modal" id="pickModal" aria-hidden="true">
+    <div class="card">
+      <header><h1 style="padding:12px 16px;margin:0;font-size:16px">Pick an activity label</h1></header>
+      <div class="body">
+        <div class="small">These exist in Step 1 and are not yet placed.</div>
+        <div class="choices" id="choiceList" style="margin-top:8px"></div>
+        <input id="customInput" placeholder="Or type label (must exist & be unplaced)" />
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+          <button id="cancelPickBtn">Cancel</button>
+          <button id="confirmPickBtn">Use label</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: set relationship type + lag -->
+  <div class="modal" id="relModal" aria-hidden="true">
+    <div class="card">
+      <header><h1 style="padding:12px 16px;margin:0;font-size:16px">Relationship (FS/SS/FF/SF) & Lag</h1></header>
+      <div class="body">
+        <div class="row">
+          <label for="relType">Type</label>
+          <select id="relType">
+            <option value="FS">FS (Finish → Start)</option>
+            <option value="SS">SS (Start → Start)</option>
+            <option value="FF">FF (Finish → Finish)</option>
+            <option value="SF">SF (Start → Finish)</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="relLag">Lag</label>
+          <input id="relLag" type="number" step="0.5" value="0" />
+        </div>
+        <div class="small">Lag may be negative (lead). Example: FS+2 means successor’s start ≥ predecessor’s finish + 2.</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+          <button id="cancelRelBtn">Cancel</button>
+          <button id="confirmRelBtn">Add link</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden SVG marker defs -->
+  <div class="markers">
+    <svg width="0" height="0"><defs>
+      <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L10,3 L0,6 Z" fill="#cbd5e1"></path>
+      </marker>
+      <marker id="arrowHeadSel" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L10,3 L0,6 Z" fill="#60a5fa"></path>
+      </marker>
+      <marker id="arrowHeadCrit" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L10,3 L0,6 Z" fill="#ef4444"></path>
+      </marker>
+    </defs></svg>
+  </div>
+
+<script>
+/* --------- small helpers --------- */
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function setStepChip(step){
+  $('#stepChip1').classList.toggle('active', step===1);
+  $('#stepChip2').classList.toggle('active', step===2);
+  $('#stepChip3').classList.toggle('active', step===3);
+}
+function toNumber(v, d=0){ const n = Number(v); return Number.isFinite(n) ? n : d; }
+const EPS = 1e-9;
+
+/* --------- activities table model (AON) --------- */
+const actBody = $('#actBody');
+function addRow(activity='', duration='1', preds=''){
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="act" placeholder="A" value="${activity}"></td>
+    <td><input class="dur" type="number" step="0.5" min="0" placeholder="1" value="${duration}"></td>
+    <td><input class="preds" placeholder="e.g., A FS2, B SS-1" value="${preds}"></td>
+    <td class="row-actions"><button class="del">✕</button></td>`;
+  tr.querySelector('.del').onclick = ()=> tr.remove();
+  actBody.appendChild(tr);
+}
+$('#addRowBtn').onclick = ()=> addRow();
+$('#clearBtn').onclick = ()=> { actBody.innerHTML=''; updateUnplacedBadge(); };
+
+/* A sample with mixed relationships */
+$('#sampleBtn').onclick = ()=>{
+  actBody.innerHTML='';
+  const sample = [
+    ['A',3,''],
+    ['B',4,'A'],
+    ['C',2,'A FS1'],
+    ['D',5,'B'],
+    ['E',2,'C, D'],
+    ['F',3,'D SS2'],
+    ['G',4,'E, F'],
+    ['H',3,'B SS1'],
+    ['I',2,'H FF0']
+  ];
+  sample.forEach(([a,d,p])=> addRow(a,d,p));
+  updateUnplacedBadge();
+};
+
+function parsePredToken(tok){
+  let t = tok.trim().replace(/\s+/g,' ');
+  if(!t) return null;
+  const m = t.match(/^([A-Za-z0-9._-]+)(?:\s*(FS|SS|FF|SF)\s*([+-]?\d*\.?\d+)?)?$/i);
+  if(!m) return {error:`Could not parse predecessor token "${tok}"`};
+  const pred = m[1].toUpperCase();
+  const type = (m[2]||'FS').toUpperCase();
+  const lag = toNumber(m[3]||0, 0);
+  return {pred, type, lag};
+}
+
+function parseActivities(){
+  const rows = Array.from(actBody.querySelectorAll('tr'));
+  const map = new Map(); // label -> { duration, preds:[{pred,type,lag}] }
+  const errors = [];
+  rows.forEach((tr,i)=>{
+    let a = tr.querySelector('.act').value.trim().toUpperCase();
+    let d = tr.querySelector('.dur').value.trim();
+    let p = tr.querySelector('.preds').value.trim();
+    if(!a){ return; }
+    if(map.has(a)){ errors.push(`Activity "${a}" appears more than once.`); return; }
+    let dur = toNumber(d);
+    if(!Number.isFinite(dur) || dur < 0){ errors.push(`Activity "${a}" has invalid duration "${d}".`); dur = 0; }
+    const preds = [];
+    if(p){
+      p.split(',').forEach(tok=>{
+        const r = parsePredToken(tok);
+        if(!r) return;
+        if(r.error){ errors.push(r.error); return; }
+        preds.push(r);
+      });
+    }
+    map.set(a, {duration:dur, preds});
+  });
+
+  // Auto‑include PS/PF if present on the diagram; force duration=0.
+  const labelsOnDiagram = new Set(nodes.map(n=> n.label.toUpperCase()));
+  if(labelsOnDiagram.has('PS')){
+    if(!map.has('PS')) map.set('PS', {duration:0, preds:[]});
+    else map.get('PS').duration = 0;
+  }
+  if(labelsOnDiagram.has('PF')){
+    if(!map.has('PF')) map.set('PF', {duration:0, preds:[]});
+    else map.get('PF').duration = 0;
+  }
+
+  // validate references exist
+  for (const [a,info] of map.entries()){
+    info.preds.forEach(({pred})=>{
+      if(!map.has(pred)){
+        errors.push(`Activity "${a}" references predecessor "${pred}" which is not defined.`);
+      }
+      if(pred===a){
+        errors.push(`Activity "${a}" cannot reference itself.`);
+      }
+    });
+  }
+  // simple precedence cycle check (ignore type/lag)
+  const g = {};
+  map.forEach((v,k)=> g[k]=[]);
+  map.forEach((info,a)=>{
+    info.preds.forEach(r=>{ if(g[r.pred]) g[r.pred].push(a); });
+  });
+  const vis={}, inst={}, cyc=[];
+  function dfs(v){
+    vis[v]=true; inst[v]=true;
+    (g[v]||[]).forEach(w=>{
+      if(!vis[w]) dfs(w);
+      else if(inst[w]) cyc.push([v,w]);
+    });
+    inst[v]=false;
+  }
+  Object.keys(g).forEach(k=>{ if(!vis[k]) dfs(k); });
+  if(cyc.length){ errors.push('Your precedence set has a cycle (check for circular dependencies).'); }
+  return {map, errors};
+}
+
+/* ---------- diagram model (AON) ---------- */
+let nodes = []; // {id, x, y, label}
+let edges = []; // {id, from, to, type, lag}
+let nextNodeId = 1, nextEdgeId = 1;
+
+const canvas = $('#canvas');
+let mode = 'select'; // select | addNode | drawLink | delete
+let selectedNodeId = null;
+let pendingFrom = null; // for drawing links
+let lastTimes = null;   // {byAct:{ES,EF,LS,LF,TF}, projectDuration, criticalActs:Set, criticalEdgeIds:Set}
+
+function setMode(m){
+  mode = m;
+  $$('#diagramToolbar .mode').forEach(b=> b.classList.remove('active'));
+  if(m==='select') $('#modeSelect').classList.add('active');
+  if(m==='addNode') $('#modeAddNode').classList.add('active');
+  if(m==='drawLink') $('#modeDrawLink').classList.add('active');
+  if(m==='delete') $('#modeDelete').classList.add('active');
+  $('#ghostTip').innerHTML = `Mode: <b>${
+    m==='select'?'Select / Move':
+    m==='addNode'?'Add Activity':
+    m==='drawLink'?'Draw Link':'Delete'
+  }</b>${m==='drawLink'?' – click predecessor, then successor':''}`;
+  pendingFrom = null;
+}
+$('#modeSelect').onclick = ()=> setMode('select');
+$('#modeAddNode').onclick = ()=> setMode('addNode');
+$('#modeDrawLink').onclick = ()=> setMode('drawLink');
+$('#modeDelete').onclick = ()=> setMode('delete');
+
+function addNodeAt(x,y,label){
+  nodes.push({id: nextNodeId++, x, y, label});
+  render();
+}
+function findNodeByLabel(lbl){ return nodes.find(n=> n.label.toUpperCase()===lbl.toUpperCase()); }
+
+function addPS(){
+  if(findNodeByLabel('PS')){ alert('PS is already on the diagram.'); return; }
+  const r = canvas.getBoundingClientRect();
+  addNodeAt(80, Math.max(100, r.height*0.3), 'PS');
+}
+function addPF(){
+  if(findNodeByLabel('PF')){ alert('PF is already on the diagram.'); return; }
+  const r = canvas.getBoundingClientRect();
+  addNodeAt(Math.max(r.width-80, 200), Math.max(180, r.height*0.6), 'PF');
+}
+$('#addPSBtn').onclick = addPS;
+$('#addPFBtn').onclick = addPF;
+
+function addEdge(from,to,type,lag){
+  edges.push({id: nextEdgeId++, from, to, type, lag});
+  render();
+}
+function removeNode(id){
+  nodes = nodes.filter(n=> n.id!==id);
+  edges = edges.filter(e=> e.from!==id && e.to!==id);
+  render();
+}
+function removeEdge(id){ edges = edges.filter(e=> e.id!==id); render(); }
+function getNode(id){ return nodes.find(n=> n.id===id); }
+function getLabelByNode(id){ const n=getNode(id); return n?n.label:null; }
+
+/* ---- render SVG ---- */
+function render(){
+  canvas.innerHTML = '';
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+  // group edges by pair for path offsets
+  const pairGroups = {};
+  edges.forEach(e=>{
+    const key = e.from+'->'+e.to;
+    if(!pairGroups[key]) pairGroups[key]=[];
+    pairGroups[key].push(e);
+  });
+
+  // draw edges first
+  const critEdgeIds = lastTimes?.criticalEdgeIds || new Set();
+  edges.forEach(e=>{
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.classList.add('edge');
+    if(critEdgeIds.has(e.id)) g.classList.add('critical');
+    g.dataset.id = e.id;
+    const from = getNode(e.from), to = getNode(e.to);
+    if(!from || !to) return;
+
+    const [x1,y1,x2,y2] = [from.x,from.y,to.x,to.y];
+    const siblings = pairGroups[e.from+'->'+e.to];
+    const idx = siblings.indexOf(e);
+    const count = siblings.length;
+    let pathD = '';
+    const mx = (x1+x2)/2, my = (y1+y2)/2;
+    if(count===1){
+      pathD = `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`;
+    }else{
+      const dx = x2-x1, dy = y2-y1;
+      const len = Math.hypot(dx,dy) || 1;
+      const nx = -dy/len, ny = dx/len;
+      const spread = 24;
+      const offset = (idx - (count-1)/2) * spread;
+      const cx = mx + nx * offset, cy = my + ny * offset;
+      pathD = `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
+    }
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', pathD);
+    path.setAttribute('marker-end', `url(#${critEdgeIds.has(e.id)?'arrowHeadCrit':'arrowHead'})`);
+    path.style.pointerEvents = 'visibleStroke';
+    g.appendChild(path);
+
+    // edge label
+    const lx = 0.5*x1 + 0.5*mx, ly = 0.5*y1 + 0.5*my - 6;
+    const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x', lx); txt.setAttribute('y', ly);
+    txt.setAttribute('text-anchor','middle');
+    const sign = e.lag>=0?'+':'';
+    txt.textContent = `${e.type}${sign}${e.lag}`;
+    g.appendChild(txt);
+
+    // interactions
+    g.addEventListener('click', (ev)=>{
+      if(mode==='delete'){ removeEdge(e.id); return; }
+      if(mode==='select'){
+        $$('#canvas .edge').forEach(x=> x.classList.remove('selected'));
+        g.classList.add('selected');
+      }
+      ev.stopPropagation();
+    });
+
+    canvas.appendChild(g);
+  });
+
+  // draw nodes
+  const criticalActs = lastTimes?.criticalActs || new Set();
+  nodes.forEach(n=>{
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.classList.add('aon-node'); g.dataset.id = n.id;
+    if(criticalActs.has(n.label)) g.classList.add('critical');
+
+    const isMS = (n.label==='PS' || n.label==='PF');
+
+    if(isMS){
+      // diamond (width ~ 110, height ~ 90)
+      const dw=110, dh=90;
+      const pts = [
+        `${n.x},${n.y - dh/2}`,
+        `${n.x + dw/2},${n.y}`,
+        `${n.x},${n.y + dh/2}`,
+        `${n.x - dw/2},${n.y}`
+      ].join(' ');
+      const poly = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+      poly.setAttribute('points', pts);
+      g.appendChild(poly);
+
+      // label center
+      const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+      lbl.setAttribute('x', n.x); lbl.setAttribute('y', n.y+4);
+      lbl.setAttribute('text-anchor','middle');
+      lbl.textContent = n.label;
+      g.appendChild(lbl);
+
+      // show small timing text (ES/EF top, LS/LF bottom) if computed
+      const t = lastTimes?.byAct?.[n.label] || null;
+      if(t){
+        const top = document.createElementNS('http://www.w3.org/2000/svg','text');
+        top.setAttribute('x', n.x); top.setAttribute('y', n.y - 24);
+        top.setAttribute('text-anchor','middle'); top.setAttribute('class','muted');
+        top.textContent = `ES=${fmt(t.ES)} EF=${fmt(t.EF)}`;
+        g.appendChild(top);
+
+        const bot = document.createElementNS('http://www.w3.org/2000/svg','text');
+        bot.setAttribute('x', n.x); bot.setAttribute('y', n.y + 36);
+        bot.setAttribute('text-anchor','middle'); bot.setAttribute('class','muted');
+        bot.textContent = `LS=${fmt(t.LS)} LF=${fmt(t.LF)}`;
+        g.appendChild(bot);
+      }
+    }else{
+      // standard activity rectangle with grid
+      const bw=160, bh=100;
+      const x = n.x - bw/2, y = n.y - bh/2;
+
+      const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x', x); rect.setAttribute('y', y);
+      rect.setAttribute('width', bw); rect.setAttribute('height', bh);
+      g.appendChild(rect);
+
+      // divider lines
+      const lines = [
+        [x, y+28, x+bw, y+28],
+        [x, y+72, x+bw, y+72],
+        [x+bw/3, y, x+bw/3, y+28],
+        [x+2*bw/3, y, x+2*bw/3, y+28],
+        [x+bw/3, y+72, x+bw/3, y+bh],
+        [x+2*bw/3, y+72, x+2*bw/3, y+bh]
+      ];
+      lines.forEach(([x1,y1,x2,y2])=>{
+        const ln = document.createElementNS('http://www.w3.org/2000/svg','line');
+        ln.setAttribute('x1',x1); ln.setAttribute('y1',y1);
+        ln.setAttribute('x2',x2); ln.setAttribute('y2',y2);
+        ln.setAttribute('stroke','#334155'); ln.setAttribute('stroke-width','1');
+        g.appendChild(ln);
+      });
+
+      const t = lastTimes?.byAct?.[n.label] || null;
+      const ES = t ? fmt(t.ES) : '—';
+      const EF = t ? fmt(t.EF) : '—';
+      const LS = t ? fmt(t.LS) : '—';
+      const LF = t ? fmt(t.LF) : '—';
+      const TF = t ? fmt(t.TF) : '—';
+      const dur = (parseActivities().map.get(n.label)?.duration ?? null);
+
+      addText(g, x + bw/6, y + 18, ES);
+      addText(g, x + 5*bw/6, y + 18, EF);
+
+      const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+      lbl.setAttribute('x', n.x); lbl.setAttribute('y', y+50);
+      lbl.setAttribute('text-anchor','middle');
+      lbl.textContent = n.label;
+      g.appendChild(lbl);
+
+      const durTxt = document.createElementNS('http://www.w3.org/2000/svg','text');
+      durTxt.setAttribute('x', n.x); durTxt.setAttribute('y', y+66);
+      durTxt.setAttribute('text-anchor','middle');
+      durTxt.setAttribute('class','muted');
+      durTxt.textContent = `d=${dur ?? '—'}`;
+      g.appendChild(durTxt);
+
+      addText(g, x + bw/6, y + 88, LS);
+      addText(g, x + bw/2, y + 88, TF);
+      addText(g, x + 5*bw/6, y + 88, LF);
+    }
+
+    // interactions
+    g.addEventListener('mousedown', startDragNode);
+    g.addEventListener('click', (ev)=>{
+      if(mode==='delete'){ removeNode(n.id); return; }
+      if(mode==='drawLink'){
+        if(pendingFrom===null){
+          pendingFrom = n.id;
+          highlightNode(n.id, true);
+        }else{
+          const from = pendingFrom, to = n.id;
+          highlightNode(pendingFrom, false);
+          pendingFrom = null;
+          if(from===to) return;
+          openRelModal((type,lag)=>{
+            if(type){ addEdge(from, to, type, lag); quickStats(); }
+          });
+        }
+        ev.stopPropagation();
+      }
+      if(mode==='select'){
+        $$('#canvas .aon-node').forEach(x=> x.classList.remove('selected'));
+        g.classList.add('selected');
+        selectedNodeId = n.id;
+      }
+    });
+
+    // double-click to edit label
+    g.addEventListener('dblclick', ()=>{
+      const v = prompt('Edit activity label:', n.label);
+      if(v!==null && v.trim()){
+        const newLbl = v.trim().toUpperCase();
+        // prevent multiple PS/PF
+        if((newLbl==='PS' && findNodeByLabel('PS') && n.label!=='PS') ||
+           (newLbl==='PF' && findNodeByLabel('PF') && n.label!=='PF')){
+          alert(`${newLbl} already exists on the diagram.`);
+          return;
+        }
+        n.label = newLbl;
+        render();
+      }
+    });
+
+    canvas.appendChild(g);
+  });
+
+  // update counters
+  $('#nodeCount').textContent = String(nodes.length);
+  $('#edgeCount').textContent = String(edges.length);
+  updateUnplacedBadge();
+  quickStats();
+}
+
+function addText(g,x,y,text){
+  const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+  t.setAttribute('x',x); t.setAttribute('y',y);
+  t.setAttribute('text-anchor','middle');
+  t.textContent = text;
+  g.appendChild(t);
+}
+function fmt(v){ return Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : String(Number(v.toFixed(2))); }
+
+function highlightNode(id, on){
+  const g = $(`#canvas .aon-node[data-id="${id}"]`);
+  if(g) g.classList.toggle('selected', !!on);
+}
+
+/* ---- dragging nodes ---- */
+let dragging = null;
+function startDragNode(ev){
+  if(mode!=='select') return;
+  const id = Number(this.dataset.id);
+  dragging = { id, ox: ev.clientX, oy: ev.clientY, start: {...getNode(id)} };
+  window.addEventListener('mousemove', onDrag);
+  window.addEventListener('mouseup', stopDrag);
+}
+function onDrag(ev){
+  if(!dragging) return;
+  const n = getNode(dragging.id);
+  const dx = ev.clientX - dragging.ox;
+  const dy = ev.clientY - dragging.oy;
+  n.x = dragging.start.x + dx;
+  n.y = dragging.start.y + dy;
+  render();
+}
+function stopDrag(){
+  window.removeEventListener('mousemove', onDrag);
+  window.removeEventListener('mouseup', stopDrag);
+  dragging = null;
+}
+
+/* ---- pick activity label modal ---- */
+const pickModal = $('#pickModal');
+const choiceList = $('#choiceList');
+const customInput = $('#customInput');
+
+function pickUnplacedFirst(){
+  const options = unplacedActivities();
+  return options[0] || null;
+}
+function openPickModal(options, onPick){
+  choiceList.innerHTML='';
+  options.forEach(lbl=>{
+    const b = document.createElement('button'); b.textContent = lbl; b.onclick=()=>{ closePick(); onPick(lbl); };
+    choiceList.appendChild(b);
+  });
+  customInput.value = '';
+  $('#confirmPickBtn').onclick = ()=> {
+    const v = customInput.value.trim().toUpperCase();
+    if(v && options.includes(v)){ closePick(); onPick(v); }
+    else alert('Type an unplaced, defined activity label.');
+  };
+  $('#cancelPickBtn').onclick = ()=> { closePick(); onPick(null); };
+  pickModal.style.display='flex'; pickModal.setAttribute('aria-hidden','false');
+}
+function closePick(){ pickModal.style.display='none'; pickModal.setAttribute('aria-hidden','true'); }
+
+function pickActivityLabel(cb){
+  const defined = Array.from(parseActivities().map.keys());
+  const placed = nodes.map(n=> n.label);
+  const options = defined.filter(a=> !placed.includes(a)).sort();
+  if(options.length===0){ alert('All defined activities are already placed.'); cb(null); return; }
+  openPickModal(options, cb);
+}
+
+/* ---- relationship modal ---- */
+const relModal = $('#relModal');
+function openRelModal(cb){
+  $('#relType').value = 'FS';
+  $('#relLag').value = '0';
+  $('#confirmRelBtn').onclick = ()=>{
+    const type = $('#relType').value;
+    const lag = toNumber($('#relLag').value, 0);
+    closeRel(); cb(type, lag);
+  };
+  $('#cancelRelBtn').onclick = ()=> { closeRel(); cb(null, null); };
+  relModal.style.display='flex'; relModal.setAttribute('aria-hidden','false');
+}
+function closeRel(){ relModal.style.display='none'; relModal.setAttribute('aria-hidden','true'); }
+
+/* ---- validation, stats, CPM ---- */
+function activityMap(){ return parseActivities().map; }
+
+function unplacedActivities(){
+  const defined = Array.from(activityMap().keys());
+  const placed = nodes.map(n=> n.label);
+  // Don't nag about PS/PF unless they're actually present on the diagram
+  return defined.filter(a=> !placed.includes(a) && a!=='PS' && a!=='PF');
+}
+function updateUnplacedBadge(){
+  $('#unplacedCount').textContent = String(unplacedActivities().length);
+}
+
+function countStartsFinishesAON(){
+  // ignore PS/PF for these counts
+  const idsToIgnore = new Set(nodes.filter(n=> n.label==='PS' || n.label==='PF').map(n=> n.id));
+  const indeg={}, outdeg={};
+  nodes.forEach(n=> { if(!idsToIgnore.has(n.id)){ indeg[n.id]=0; outdeg[n.id]=0; }});
+  edges.forEach(e=>{
+    if(indeg[e.to]!==undefined) indeg[e.to]++;
+    if(outdeg[e.from]!==undefined) outdeg[e.from]++;
+  });
+  const starts = nodes.filter(n=> indeg[n.id]===0 && !idsToIgnore.has(n.id));
+  const finishes = nodes.filter(n=> outdeg[n.id]===0 && !idsToIgnore.has(n.id));
+  return {starts, finishes};
+}
+
+function validateNow(){
+  const res = $('#results'); res.innerHTML='';
+  const {map, errors} = parseActivities();
+
+  function addMsg(kind, text){ const div=document.createElement('div'); div.className=`item ${kind}`; div.textContent=text; res.appendChild(div); }
+
+  if(errors.length){ errors.forEach(e=> addMsg('err', e)); }
+
+  // placed nodes
+  for(const a of map.keys()){
+    if(a==='PS' || a==='PF') continue;
+    if(!nodes.find(n=> n.label===a)) addMsg('warn', `Place activity "${a}" on the diagram.`);
+  }
+  for(const n of nodes){
+    if(!map.has(n.label)) addMsg('warn', `Node "${n.label}" is not defined in your activities list.`);
+  }
+
+  // relationship checks: compare spec vs drawn (ignore PS/PF in spec since they rarely appear there)
+  const specRel = new Set();
+  map.forEach((info, succ)=>{
+    if(succ==='PS' || succ==='PF') return;
+    info.preds.forEach(r=> specRel.add(`${r.pred}->${succ}:${r.type}:${r.lag}`));
+  });
+  const drawnRel = new Set();
+  edges.forEach(e=>{
+    const pred = getLabelByNode(e.from), succ = getLabelByNode(e.to);
+    if(pred && succ) drawnRel.add(`${pred}->${succ}:${e.type}:${e.lag}`);
+  });
+
+  specRel.forEach(key=>{
+    if(!drawnRel.has(key)){
+      const [pp, rest]=key.split('->'); const [ss, t, lag]=rest.split(':');
+      addMsg('warn', `Missing link: ${pp} → ${ss} (${t}${Number(lag)>=0?'+':''}${lag}).`);
+    }
+  });
+  drawnRel.forEach(key=>{
+    if(!specRel.has(key)){
+      const [pp, rest]=key.split('->'); const [ss, t, lag]=rest.split(':');
+      // Only flag as "extra" if neither PP nor SS is PS/PF (since you often wire those only on the diagram)
+      if(pp!=='PS' && pp!=='PF' && ss!=='PS' && ss!=='PF'){
+        addMsg('warn', `Extra link not in spec: ${pp} → ${ss} (${t}${Number(lag)>=0?'+':''}${lag}).`);
+      }
+    }
+  });
+
+  // constraint cycles
+  const cyc = detectConstraintCycles(map);
+  if(cyc){ addMsg('err', 'Constraint graph has a cycle. Check relationships/lags.'); }
+  else addMsg('ok', 'No directed cycles detected in constraint graph.');
+
+  // starts/finishes (excluding PS/PF)
+  const sf = countStartsFinishesAON();
+  addMsg(sf.starts.length===1 ? 'ok':'warn', `Start activities (excluding PS): ${sf.starts.length}.`);
+  addMsg(sf.finishes.length===1 ? 'ok':'warn', `Finish activities (excluding PF): ${sf.finishes.length}.`);
+
+  // PS/PF sanity
+  const ps = findNodeByLabel('PS');
+  const pf = findNodeByLabel('PF');
+  if(ps){
+    const indegPS = edges.filter(e=> e.to===ps.id).length;
+    if(indegPS>0) addMsg('warn','PS should not have incoming links.');
+  }
+  if(pf){
+    const outdegPF = edges.filter(e=> e.from===pf.id).length;
+    if(outdegPF>0) addMsg('warn','PF should not have outgoing links.');
+  }
+
+  // quick badges
+  const qb = $('#quickBadges');
+  qb.innerHTML='';
+  const b1 = document.createElement('div'); b1.className='chip'; b1.textContent = `${unplacedActivities().length} unplaced`;
+  qb.appendChild(b1);
+  const b2 = document.createElement('div'); b2.className='chip'; b2.textContent = `${edges.length} links`;
+  qb.appendChild(b2);
+}
+
+function detectConstraintCycles(map){
+  const cg = buildConstraintGraph(map); // {N, edges:[{u,v,w}]}
+  const adj = Array.from({length: cg.N}, ()=>[]);
+  cg.edges.forEach(e=> adj[e.u].push(e.v));
+  const vis = new Array(cg.N).fill(0); // 0=un,1=vis,2=done
+  let has=false;
+  function dfs(v){
+    vis[v]=1;
+    for(const w of adj[v]){
+      if(vis[w]===0) dfs(w);
+      else if(vis[w]===1){ has=true; return; }
+    }
+    vis[v]=2;
+  }
+  for(let i=0;i<cg.N;i++){ if(vis[i]===0) dfs(i); if(has) break; }
+  return has;
+}
+
+function buildConstraintGraph(map){
+  // 2 nodes per activity: S(i), F(i). constraint edges x_j >= x_i + w
+  const acts = Array.from(map.keys()).sort();
+  const idxS = {}, idxF = {};
+  let idx=0;
+  acts.forEach(a=>{ idxS[a]=idx++; idxF[a]=idx++; });
+  const edgesC = [];
+  // duration edges (PS/PF forced 0 by parseActivities)
+  acts.forEach(a=>{
+    const d = map.get(a).duration;
+    edgesC.push({u: idxS[a], v: idxF[a], w: d});
+  });
+  // relationship edges from diagram
+  edges.forEach(e=>{
+    const pred = getLabelByNode(e.from), succ = getLabelByNode(e.to);
+    if(!pred || !succ) return;
+    const t = e.type.toUpperCase(); const L = Number(e.lag)||0;
+    if(t==='FS') edgesC.push({u: idxF[pred], v: idxS[succ], w: L});
+    else if(t==='SS') edgesC.push({u: idxS[pred], v: idxS[succ], w: L});
+    else if(t==='FF') edgesC.push({u: idxF[pred], v: idxF[succ], w: L});
+    else if(t==='SF') edgesC.push({u: idxS[pred], v: idxF[succ], w: L});
+  });
+  return {N: idx, idxS, idxF, edges: edgesC, acts};
+}
+
+function topoOrder(N, edgesList){
+  const adj = Array.from({length:N}, ()=>[]);
+  const indeg = new Array(N).fill(0);
+  edgesList.forEach(e=>{ adj[e.u].push({v:e.v,w:e.w}); indeg[e.v]++; });
+  const q=[]; for(let i=0;i<N;i++) if(indeg[i]===0) q.push(i);
+  const order=[];
+  while(q.length){
+    const v=q.shift(); order.push(v);
+    for(const {v:w} of adj[v]){ indeg[w]--; if(indeg[w]===0) q.push(w); }
+  }
+  if(order.length!==N) return null; // cycle
+  return {order, adj};
+}
+
+function computeCPM(){
+  const res = $('#results'); res.innerHTML='';
+  const {map, errors} = parseActivities();
+  function addMsg(kind, text){ const div=document.createElement('div'); div.className=`item ${kind}`; div.textContent=text; res.appendChild(div); }
+
+  if(errors.length){ errors.forEach(e=> addMsg('err', e)); return; }
+  // ensure all defined non-milestone activities have nodes
+  for(const a of map.keys()){
+    if((a==='PS'||a==='PF')) continue;
+    if(!nodes.find(n=> n.label===a)){ addMsg('err', `Place activity "${a}" before computing.`); }
+  }
+  if(res.querySelector('.err')) return;
+
+  const CG = buildConstraintGraph(map);
+  const topo = topoOrder(CG.N, CG.edges);
+  if(!topo){ addMsg('err','Constraint graph has a cycle; CPM not possible.'); return; }
+
+  // forward pass
+  const E = new Array(CG.N).fill(-Infinity);
+  topo.order.forEach(v=>{
+    if(E[v]===-Infinity) E[v] = Math.max(0, E[v]);
+    for(const {v:w, w:wt} of topo.adj[v]){
+      if(E[w] < E[v] + wt) E[w] = E[v] + wt;
+    }
+  });
+
+  // project duration
+  let PD = 0;
+  const byAct = {};
+  CG.acts.forEach(a=>{
+    const ES = Math.max(0, E[CG.idxS[a]]);
+    const EF = Math.max(0, E[CG.idxF[a]]);
+    PD = Math.max(PD, EF);
+    byAct[a] = {ES, EF};
+  });
+
+  // backward pass
+  const revAdj = Array.from({length:CG.N}, ()=>[]);
+  CG.edges.forEach(e=> revAdj[e.v].push({u:e.u,w:e.w}));
+  const L = new Array(CG.N).fill(+Infinity);
+  const outdeg = new Array(CG.N).fill(0);
+  CG.edges.forEach(e=> outdeg[e.u]++);
+  for(let i=0;i<CG.N;i++){ if(outdeg[i]===0) L[i] = PD; }
+  for(let i=topo.order.length-1;i>=0;i--){
+    const v = topo.order[i];
+    for(const {u, w:wt} of revAdj[v]){
+      if(L[v]!==+Infinity) L[u] = Math.min(L[u], L[v] - wt);
+    }
+    if(L[v]===+Infinity) L[v]=PD;
+  }
+
+  // collect times and critical sets
+  const criticalActs = new Set();
+  CG.acts.forEach(a=>{
+    const ES = byAct[a].ES, EF = byAct[a].EF;
+    const LS = L[CG.idxS[a]], LF = L[CG.idxF[a]];
+    const TF = LS - ES;
+    byAct[a] = {ES,EF,LS,LF,TF};
+    if(Math.abs(TF) < EPS) criticalActs.add(a);
+  });
+
+  const criticalEdgeIds = new Set();
+  edges.forEach(e=>{
+    const pred = getLabelByNode(e.from), succ = getLabelByNode(e.to);
+    if(!pred || !succ) return;
+    let u, v, w;
+    if(e.type==='FS'){ u = CG.idxF[pred]; v = CG.idxS[succ]; w=e.lag; }
+    if(e.type==='SS'){ u = CG.idxS[pred]; v = CG.idxS[succ]; w=e.lag; }
+    if(e.type==='FF'){ u = CG.idxF[pred]; v = CG.idxF[succ]; w=e.lag; }
+    if(e.type==='SF'){ u = CG.idxS[pred]; v = CG.idxF[succ]; w=e.lag; }
+    const tight = Math.abs(E[u] + w - E[v]) < EPS;
+    const endCrit = Math.abs(E[v] - L[v]) < EPS;
+    if(tight && endCrit) criticalEdgeIds.add(e.id);
+  });
+
+  lastTimes = {byAct, projectDuration: PD, criticalActs, criticalEdgeIds};
+  $('#statusDuration').textContent = `Project duration: ${fmt(PD)}`;
+  render();
+
+  addMsg('ok', `CPM computed. Project duration = ${fmt(PD)}.`);
+  const critList = Array.from(criticalActs).filter(a=>a!=='PS'&&a!=='PF').sort((a,b)=> byAct[a].ES - byAct[b].ES);
+  addMsg('ok', `Critical activities (by ES): ${critList.join(' → ') || '—'}.`);
+}
+
+function quickStats(){
+  const cyc = detectConstraintCycles(parseActivities().map);
+  $('#statusCycles').textContent = `Cycles: ${cyc?1:0}`;
+  const {starts, finishes} = countStartsFinishesAON();
+  $('#statusStarts').textContent = `Start activities: ${starts.length}`;
+  $('#statusFinishes').textContent = `Finish activities: ${finishes.length}`;
+}
+
+/* ---- export/import/reset ---- */
+function exportJSON(){
+  const spec = { activities: Array.from(parseActivities().map.entries()),
+                 nodes, edges, meta:{mode:'AON', ver:1, at: new Date().toISOString()} };
+  const blob = new Blob([JSON.stringify(spec,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'aon_practice.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+$('#exportBtn').onclick = exportJSON;
+
+$('#importBtn').onclick = ()=> $('#importInput').click();
+$('#importInput').addEventListener('change', async (ev)=>{
+  const file = ev.target.files[0]; if(!file) return;
+  const text = await file.text();
+  try{
+    const data = JSON.parse(text);
+    actBody.innerHTML='';
+    if(Array.isArray(data.activities)){
+      data.activities.forEach(([a,info])=>{
+        const predsStr = (info.preds||[]).map(r=> `${r.pred}${r.type?(' '+r.type):''}${(r.lag||0)!==0?( (r.lag>=0?'+':'')+r.lag): (r.type?'0':'')}`).join(', ').replace(/ 0\b/g,'0');
+        // Skip PS/PF rows in the table; they are auto‑handled
+        if(a==='PS' || a==='PF') return;
+        addRow(a, info.duration ?? 0, predsStr);
+      });
+    }
+    nodes = Array.isArray(data.nodes)? data.nodes.map(n=> ({...n})) : [];
+    edges = Array.isArray(data.edges)? data.edges.map(e=> ({...e})) : [];
+    nextNodeId = nodes.reduce((m,n)=> Math.max(m,n.id||0), 0) + 1;
+    nextEdgeId = edges.reduce((m,n)=> Math.max(m,n.id||0), 0) + 1;
+    ensureStep2();
+    lastTimes=null;
+    render();
+  }catch(err){
+    alert('Import failed: ' + err.message);
+  }
+});
+
+$('#resetBtn').onclick = ()=>{
+  if(!confirm('Clear all nodes and links?')) return;
+  nodes=[]; edges=[]; nextNodeId=1; nextEdgeId=1; lastTimes=null; render();
+};
+
+/* ---- navigation between steps ---- */
+function ensureStep2(){
+  $('#activitiesSection').style.display='';
+  $('#diagramToolbar').style.display='';
+  $('#canvasWrap').style.display='';
+  $('#validationPanel').style.display='';
+  setStepChip(2);
+}
+$('#toDiagramBtn').onclick = ()=>{
+  const {errors} = parseActivities();
+  if(errors.length){
+    alert('Fix activity list issues first:\n\n' + errors.join('\n'));
+    return;
+  }
+  ensureStep2();
+  if(nodes.length===0){
+    const r = canvas.getBoundingClientRect();
+    addPS();
+    // seed some activities for convenience
+    openPickModal(unplacedActivities().sort(), (lbl)=>{
+      if(!lbl) return;
+      addNodeAt(260, 160, lbl);
+      const lbl2 = pickUnplacedFirst(); if(lbl2) addNodeAt(460, 160, lbl2);
+      addPF();
+    });
+  }else{
+    render();
+  }
+};
+$('#backToActivitiesBtn').onclick = ()=>{
+  $('#activitiesSection').style.display='';
+  $('#diagramToolbar').style.display='none';
+  $('#canvasWrap').style.display='none';
+  $('#validationPanel').style.display='none';
+  setStepChip(1);
+};
+$('#openValidationBtn').onclick = ()=>{
+  $('#validationPanel').scrollIntoView({behavior:'smooth'});
+  setStepChip(3);
+  validateNow();
+};
+$('#validateBtn').onclick = ()=> { setStepChip(3); validateNow(); };
+$('#computeBtn').onclick = ()=> { setStepChip(3); computeCPM(); };
+$('#analyzeBtn').onclick = ()=>{
+  const {starts, finishes} = countStartsFinishesAON();
+  alert([
+    `Nodes: ${nodes.length}`,
+    `Links: ${edges.length}`,
+    `Start activities (excl. PS): ${starts.length} [${starts.map(s=>s.label).join(', ')||'-'}]`,
+    `Finish activities (excl. PF): ${finishes.length} [${finishes.map(s=>s.label).join(', ')||'-'}]`,
+    `Unplaced activities: ${unplacedActivities().length}`
+  ].join('\n'));
+};
+
+/* ---- canvas click ---- */
+canvas.addEventListener('click', (ev)=>{
+  if(mode==='addNode'){
+    const rect = canvas.getBoundingClientRect();
+    const x = ev.clientX - rect.left, y = ev.clientY - rect.top;
+    pickActivityLabel((lbl)=>{ if(lbl) addNodeAt(x,y,lbl); });
+  }else if(mode==='select'){
+    $$('#canvas .edge, #canvas .aon-node').forEach(x=> x.classList.remove('selected'));
+  }
+});
+
+/* ---- initialize ---- */
+function initSeed(){
+  addRow('A','3','');
+  addRow('B','4','A');
+  addRow('C','2','A FS1');
+  updateUnplacedBadge();
+  setStepChip(1);
+  render();
+}
+initSeed();
+</script>
+</body>
+</html>
